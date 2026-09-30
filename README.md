@@ -1,5 +1,6 @@
 # ESP32-S3-BOX-3 AI 語音聊天機器人「小柯」（OpenAI 版）
-<img width="249" height="273" alt="image" src="https://github.com/user-attachments/assets/fef84e98-4573-4fdc-b082-16e94fcff4ee" />
+<img width="1458" height="946" alt="image" src="https://github.com/user-attachments/assets/0cbf4418-a2f3-4d68-9dbf-417c753eb2ec" />
+
 <img width="1094" height="525" alt="image" src="https://github.com/user-attachments/assets/1115085f-99ff-497f-af9e-653ffc6eebd2" />
 當下功能是
 <img width="568" height="475" alt="image" src="https://github.com/user-attachments/assets/2fee0083-658b-4510-bbaf-10e20d3b9cc1" />
