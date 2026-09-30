@@ -25,6 +25,12 @@
 #define BOX_BTN_MUTE   1       // 頂部靜音鍵（硬體切斷麥克風，這支腳可讀狀態）
 #define BOX_BTN_BOOT   0       // 側邊 BOOT 鍵
 
+// ---- ESP32-S3-BOX-3-SENSOR 底座（實測 I2C SDA41/SCL40：0x38 AHT30、0x28）----
+#define DOCK_I2C_SDA   41
+#define DOCK_I2C_SCL   40
+#define DOCK_RADAR     21      // 2.4GHz 雷達輸出，HIGH = 有人
+#define AHT30_ADDR     0x38
+
 #define ES8311_ADDR    0x18
 #define ES7210_ADDR    0x40
 
@@ -162,3 +168,41 @@ TouchState gt911Read() {
   gtWrite(0x814E, 0);
   return t;
 }
+
+// ------------------------------------------------------ SENSOR 底座 ----
+bool aht30Read(float &temp, float &hum) {
+  Wire1.beginTransmission(AHT30_ADDR);
+  Wire1.write(0xAC); Wire1.write(0x33); Wire1.write(0x00);
+  if (Wire1.endTransmission() != 0) return false;
+  delay(85);
+  uint8_t b[7];
+  if (Wire1.requestFrom((uint8_t)AHT30_ADDR, (uint8_t)7) != 7) return false;
+  for (int i = 0; i < 7; i++) b[i] = Wire1.read();
+  if (b[0] & 0x80) return false;                        // 還在量測
+  uint32_t rh = ((uint32_t)b[1] << 12) | ((uint32_t)b[2] << 4) | (b[3] >> 4);
+  uint32_t rt = ((uint32_t)(b[3] & 0x0F) << 16) | ((uint32_t)b[4] << 8) | b[5];
+  hum = rh * 100.0f / 1048576.0f;
+  temp = rt * 200.0f / 1048576.0f - 50;
+  return true;
+}
+
+bool sensorInit() {
+  Wire1.begin(DOCK_I2C_SDA, DOCK_I2C_SCL, 100000);
+  pinMode(DOCK_RADAR, INPUT);
+  Wire1.beginTransmission(AHT30_ADDR);
+  if (Wire1.endTransmission() != 0) return false;
+  Wire1.requestFrom((uint8_t)AHT30_ADDR, (uint8_t)1);
+  uint8_t st = Wire1.available() ? Wire1.read() : 0;
+  if ((st & 0x18) != 0x18) {                            // 未校正：送初始化指令
+    Wire1.beginTransmission(AHT30_ADDR);
+    Wire1.write(0xBE); Wire1.write(0x08); Wire1.write(0x00);
+    Wire1.endTransmission();
+    delay(10);
+  }
+  float t, h;
+  bool ok = aht30Read(t, h);
+  Serial.printf("AHT30 status=0x%02X %s %.1f°C %.0f%%，雷達=%d\n", st, ok ? "OK" : "FAIL", t, h, digitalRead(DOCK_RADAR));
+  return true;
+}
+
+bool radarPresent() { return digitalRead(DOCK_RADAR) == HIGH; }

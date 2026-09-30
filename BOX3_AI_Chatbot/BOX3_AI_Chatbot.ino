@@ -219,6 +219,11 @@ volatile bool touching = false;
 volatile bool micMuted = false;    // 頂部靜音鍵
 int muteIdleLevel = HIGH;          // 開機時的電位 = 未靜音
 
+// ------------------------------------------------------------ SENSOR 底座 ----
+bool sensorsOK = false;
+volatile float roomTemp = NAN, roomHum = NAN;
+volatile bool personHere = false;
+
 // ------------------------------------------------------------------ 其它 ----
 String histRole[MAX_HISTORY_MSGS];
 String histText[MAX_HISTORY_MSGS];
@@ -272,6 +277,38 @@ void touchTask(void *) {
 }
 bool takeTap()  { bool v = evTap;  evTap = false;  return v; }
 bool takeHome() { bool v = evHome; evHome = false; return v; }
+
+// SENSOR 底座 task：每 5 秒讀溫濕度，每 200ms 看雷達；有人靠近時叫醒小柯
+volatile bool evPresence = false;  // 離開一陣子後又有人靠近
+void sensorTask(void *) {
+  uint32_t lastTH = 0, lastSeen = 0;
+  bool prev = false;
+  for (;;) {
+    uint32_t now = millis();
+    if (now - lastTH > 5000 || lastTH == 0) {
+      float t, h;
+      if (aht30Read(t, h)) { roomTemp = t; roomHum = h; }
+      lastTH = now;
+    }
+    bool p = radarPresent();
+    if (p && !prev) {
+      Serial.println("雷達：有人");
+      if (lastSeen == 0 || now - lastSeen > RADAR_AWAY_SEC * 1000UL) evPresence = true;
+    }
+    if (!p && prev) Serial.println("雷達：沒人");
+    if (p) lastSeen = now;
+    personHere = p;
+    prev = p;
+    vTaskDelay(pdMS_TO_TICKS(200));
+  }
+}
+
+String roomString() {
+  if (!sensorsOK || isnan(roomTemp)) return "";
+  char b[64];
+  snprintf(b, sizeof(b), "%.1f°C 濕度%.0f%%", (float)roomTemp, (float)roomHum);
+  return b;
+}
 
 // ============================================================================
 //  畫面：機器人頭盔 + 發光表情
@@ -658,6 +695,12 @@ void uiTask(void *) {
         u8f.setForegroundColor(C_GLOW_DIM);
         u8f.drawUTF8(4, 236, ipText);                                  // 設定網頁位址
         drawMicBars(290, 236, st == UI_LISTEN);
+        String room = roomString();
+        if (room.length()) {
+          u8f.setForegroundColor(C_ORANGE);
+          u8f.drawUTF8(284 - u8f.getUTF8Width(room.c_str()), 218, room.c_str());
+          if (personHere) cv->fillCircle(290, 212, 4, C_GREEN);           // 雷達偵測到人
+        }
       } else {
         drawRobot(68, 142, 0.5f, ex, lx * 0.5f, ly * 0.5f, blink, mouth, now, ant, signal);
         drawTopBar();
@@ -945,7 +988,10 @@ String chatWithGPT(const String &userText) {
                    "並說有任何意見可以寫信到 achir1015@gmail.com。"
                    "每次回答的最開頭，加上一個代表你當下心情的標籤，只能是以下其中一個："
                    "[happy] [love] [surprise] [sad] [angry] [wink] [shy]，標籤後面直接接回答內容。"
-                   "現在時間：" + nowString() + "。";
+                   "現在時間：" + nowString() + "。" +
+                   (roomString().length() ? "你身上的感測器量到室內溫度 " + String((float)roomTemp, 1) + " 度、濕度 " +
+                    String((int)roomHum) + "%，使用者問溫度、濕度、天氣冷熱時要用這些實際數值回答；" +
+                    (personHere ? "雷達偵測到有人在你面前。" : "") : String(""));
 
   for (int i = 0; i < histCount; i++) {
     JsonObject m = msgs.add<JsonObject>();
@@ -1349,6 +1395,9 @@ void setup() {
   bool audioOK = initAudio();
   bool touchOK = gt911Init();
   Serial.printf("觸控 GT911: %s\n", touchOK ? "OK" : "FAIL");
+  sensorsOK = sensorInit();
+  Serial.printf("SENSOR 底座: %s\n", sensorsOK ? "OK（AHT30 溫濕度 + 雷達）" : "未偵測到");
+  if (sensorsOK) xTaskCreatePinnedToCore(sensorTask, "sensor", 4096, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(playTask, "play", 4096, nullptr, 5, &playTaskHandle, 1);
 
 #if HW_TEST_MODE
@@ -1435,6 +1484,20 @@ void loop() {
     boxI2S.readBytes((char *)tts.buf, I2S_RATE / 2 * 4);
     rawReq = 2;
     return;
+  }
+  if (evPresence) {                                       // 有人回來了：醒來打招呼
+    evPresence = false;
+    bool wasSleepy = millis() - lastInteraction > SLEEPY_AFTER_SEC * 1000UL;
+    lastInteraction = millis();
+    static uint32_t lastGreet = 0;
+    if (RADAR_GREETING && wasSleepy && (lastGreet == 0 || millis() - lastGreet > 10 * 60000UL)) {
+      lastGreet = millis();
+      speakExpr = EX_HAPPY;
+      speakAndShow("嗨！你回來啦，要不要跟我聊聊天？");
+      flushMic(300);
+      setUi(UI_IDLE);
+      return;
+    }
   }
   // 持續聆聽：每次讀 20ms，存進預錄環狀緩衝
   int rms = readFrame(preroll[prerollHead]);

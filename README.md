@@ -20,13 +20,15 @@
 | 對話記憶 | 記得最近 10 則對話 |
 | 表情 | 開心、愛心、驚訝、難過、生氣、眨眼、害羞，太久沒互動會想睡 |
 | 時間 | 上方顯示日期、星期、農曆與時間（NTP 自動校時）|
+| 室內溫濕度 | 插在 SENSOR 底座時，待機畫面右下角顯示溫度與濕度；問「室內溫度多少」會用實際量到的數值回答 |
+| 雷達感應 | SENSOR 底座的雷達偵測到有人時畫面出現綠點；離開 2 分鐘以上再回來、而小柯正在想睡時會主動打招呼 |
 | 網頁設定 | 手機開啟螢幕左下角網址，可修改 Wi-Fi、密碼與 API Key |
 | 設定熱點 | 連不上 Wi-Fi 時自動開熱點 `XiaoKe-Setup`（密碼 `xiaoke123`），連上後開 `http://192.168.4.1` |
 
 ## 硬體
 
 - **ESP32-S3-BOX-3** 主機（ESP32-S3、16MB Flash、16MB Octal PSRAM）
-- 底座：BOX-3-DOCK 或 BOX-3-SENSOR 都可以（只負責供電，本程式不使用底座上的感測器）
+- 底座：BOX-3-DOCK 或 BOX-3-SENSOR 都可以（插 SENSOR 底座會自動啟用溫濕度與雷達；插 DOCK 則略過）
 - USB-C 線
 
 主機板載元件與腳位（程式已內建，不用接線）：
@@ -39,6 +41,10 @@
 | 雙麥克風 | ES7210（I2C 0x40）| I2S DIN 16 |
 | I2S 共用 | — | MCLK 2、BCLK 17、WS 45 |
 | 按鍵 | — | BOOT = GPIO0、靜音鍵狀態 = GPIO1 |
+| 溫濕度（SENSOR 底座）| AHT30（I2C 0x38）| SDA 41、SCL 40（實測）|
+| 雷達（SENSOR 底座）| 2.4GHz 雷達 | GPIO21，HIGH = 有人 |
+
+> SENSOR 底座不支援熱插拔：換底座後請拔插 USB 重新上電。
 
 > ES8311 與 ES7210 共用同一組 I2S，所以錄音與播放都跑 24kHz（OpenAI TTS 的 pcm 格式固定 24kHz），
 > 錄音送出前再降頻成 16kHz。
@@ -108,6 +114,7 @@ arduino-cli compile --fqbn "esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,Partitio
 | `MIC_SOFT_GAIN` | 麥克風數位增益倍數 |
 | `CHAT_MODEL` / `TTS_VOICE` / `TTS_INSTRUCTIONS` | 換模型、換聲音、換說話風格 |
 | `LCD_MADCTL` / `LCD_INVERT` | 畫面方向或顏色不對時調整 |
+| `RADAR_GREETING` / `RADAR_AWAY_SEC` | 有人回來時是否打招呼、離開多久才算回來 |
 | `HW_TEST_MODE` | 設 1 = 開機只跑硬體測試（螢幕、喇叭、麥克風、觸控）|
 
 ### 除錯網址（與機器人在同一個網路）
