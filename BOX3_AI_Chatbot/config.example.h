@@ -46,3 +46,10 @@
 // ------------------------------------------------------- SENSOR 底座 ----
 #define RADAR_GREETING   1         // 1 = 雷達偵測到有人回來（且小柯正在想睡）時主動打招呼
 #define RADAR_AWAY_SEC   120       // 離開多久再回來才算「回來了」
+
+// ------------------------------------------------------------ 唱歌（YouTube 歌單）----
+// 說「唱首歌」會從這個播放清單隨機選一首，顯示封面、歌名與 QR 碼（手機掃描在 YouTube 播放）
+// 歌曲版權屬於創作者吳玉柱
+#define YT_PLAYLIST_URL   "https://www.youtube.com/playlist?list=PLMiXt5EIkXI0"
+#define SONG_COMPOSER     "吳玉柱"   // 詞曲創作者（版權所有）
+#define SONG_SHOW_SEC     180        // 唱歌畫面停留秒數（點螢幕可提早回到聊天）
