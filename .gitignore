@@ -1,0 +1,12 @@
+# 含 Wi-Fi 密碼與 OpenAI API Key，絕對不要上傳
+BOX3_AI_Chatbot/config.h
+
+# 編譯產物
+build/
+
+# 原廠韌體備份、產品文件、影片
+backup/
+*.docx
+*.pdf
+*.mp4
+*.bin
