@@ -1,4 +1,5 @@
 # ESP32-S3-BOX-3 AI 語音聊天機器人「小柯」（OpenAI 版）
+<img width="249" height="273" alt="image" src="https://github.com/user-attachments/assets/fef84e98-4573-4fdc-b082-16e94fcff4ee" />
 
 把樂鑫 **ESP32-S3-BOX-3** 變成會說台灣繁體中文的桌上型 AI 聊天機器人：
 直接對它說話 → OpenAI 語音轉文字 → ChatGPT 回答 → OpenAI 語音合成從喇叭講出來，
